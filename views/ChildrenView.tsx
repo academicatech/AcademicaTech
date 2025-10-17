@@ -12,6 +12,7 @@ const ChildrenView: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
+  const [childToPrint, setChildToPrint] = useState<Child | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
   const qrCodeRef = useRef<HTMLDivElement>(null);
@@ -22,55 +23,73 @@ const ChildrenView: React.FC = () => {
   useEffect(() => {
     if (isQrModalOpen && selectedChild && qrCodeRef.current) {
       qrCodeRef.current.innerHTML = '';
-      if (typeof QRCode !== 'undefined') {
-        const childInfo = `رقم الملف: ${selectedChild.fileNumber}\nالاسم: ${selectedChild.name}\nولي الأمر: ${selectedChild.parentName}\nالهاتف: ${selectedChild.parentPhone}`;
-        new QRCode(qrCodeRef.current, {
-          text: childInfo,
-          width: 200,
-          height: 200,
-        });
-      } else {
-        console.error("QRCode library is not loaded.");
-        qrCodeRef.current.textContent = "خطأ في تحميل رمز QR.";
+      try {
+        if (typeof QRCode !== 'undefined') {
+          // FIX: Use a short, unique identifier (fileNumber) to avoid "code length overflow" errors, especially with non-ASCII characters.
+          new QRCode(qrCodeRef.current, {
+            text: selectedChild.fileNumber,
+            width: 200,
+            height: 200,
+            correctLevel: QRCode.CorrectLevel.H, // Add error correction for robustness
+          });
+        } else {
+           throw new Error("QRCode library is not loaded.");
+        }
+      } catch (error) {
+        console.error("Failed to generate QR Code:", error);
+        qrCodeRef.current.textContent = "خطأ في إنشاء رمز QR.";
       }
     }
   }, [isQrModalOpen, selectedChild]);
 
-  // Effect for the printable card's QR code and barcode
+  // Effect specifically for handling the print action
   useEffect(() => {
-    if (selectedChild) {
-      // Generate QR Code for printing
-      if (printableQrCodeRef.current) {
-        printableQrCodeRef.current.innerHTML = ''; // Clear previous QR code
+    if (childToPrint && printableQrCodeRef.current && printableBarcodeRef.current) {
+      try {
+        // Clear previous QR code
+        printableQrCodeRef.current.innerHTML = '';
         if (typeof QRCode !== 'undefined') {
-          const childInfo = `الاسم: ${selectedChild.name}\nرقم الملف: ${selectedChild.fileNumber}\nهاتف الولي: ${selectedChild.parentPhone}`;
-          new QRCode(printableQrCodeRef.current, { text: childInfo, width: 100, height: 100 });
+          // FIX: Use a short, unique identifier (fileNumber) to avoid "code length overflow" errors.
+          new QRCode(printableQrCodeRef.current, { 
+            text: childToPrint.fileNumber, 
+            width: 100, 
+            height: 100,
+            correctLevel: QRCode.CorrectLevel.H // Add error correction for robustness
+          });
         } else {
-          console.error("QRCode library is not loaded for printing.");
+          throw new Error("QRCode library is not loaded for printing.");
         }
-      }
-
-      // Generate Barcode for printing
-      if (printableBarcodeRef.current) {
+  
+        // Generate Barcode
         if (typeof JsBarcode !== 'undefined') {
-          try {
-            JsBarcode(printableBarcodeRef.current, selectedChild.fileNumber, {
-              format: "CODE128",
-              width: 2,
-              height: 50,
-              displayValue: true,
-              fontSize: 16,
-            });
-          } catch (e) {
-            console.error("JsBarcode error:", e);
-            printableBarcodeRef.current.innerHTML = ''; // Clear on error
-          }
+          JsBarcode(printableBarcodeRef.current, childToPrint.fileNumber, {
+            format: "CODE128",
+            width: 2,
+            height: 50,
+            displayValue: true,
+            fontSize: 16,
+          });
         } else {
-          console.error("JsBarcode library is not loaded for printing.");
+          throw new Error("JsBarcode library is not loaded for printing.");
         }
+
+        // Delay printing to allow DOM to update with generated codes
+        const timer = setTimeout(() => {
+            window.print();
+            setChildToPrint(null); // Reset after printing to hide the print area
+        }, 250); // Increased delay slightly to ensure rendering
+
+        // Cleanup the timer if the component unmounts
+        return () => clearTimeout(timer);
+
+      } catch (error) {
+        console.error("Failed to generate card for printing:", error);
+        alert("فشل إنشاء البطاقة للطباعة. يرجى المحاولة مرة أخرى.");
+        setChildToPrint(null); // Reset on error
       }
     }
-  }, [selectedChild]);
+  }, [childToPrint]);
+
 
   const handleOpenModal = (child: Child | null) => {
     setSelectedChild(child);
@@ -111,11 +130,7 @@ const ChildrenView: React.FC = () => {
   };
   
   const handlePrintCard = (child: Child) => {
-    setSelectedChild(child);
-    // Allow state to update and useEffect to run before printing
-    setTimeout(() => {
-      window.print();
-    }, 100);
+    setChildToPrint(child); // This triggers the printing useEffect
   };
 
   const filteredChildren = children.filter(child =>
@@ -198,13 +213,17 @@ const ChildrenView: React.FC = () => {
            <div className="bg-white p-8 rounded-lg shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
              <h3 className="text-xl font-bold mb-4">رمز QR لـ {selectedChild.name}</h3>
              <div ref={qrCodeRef} className="flex justify-center"></div>
+             {/* UX Improvement: Explain what the QR code contains. */}
+             <p className="mt-4 text-sm text-gray-600">
+                هذا الرمز يحتوي على رقم ملف الطفل: <strong className="font-mono text-base">{selectedChild.fileNumber}</strong>
+             </p>
              <button onClick={() => setIsQrModalOpen(false)} className="mt-6 px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">إغلاق</button>
            </div>
          </div>
       )}
       
-      {selectedChild && 
-        <div id="print-area" className="hidden">
+      {childToPrint && 
+        <div id="print-area" className="absolute -left-full top-0">
             <div className="bg-white rounded-2xl shadow-2xl p-6 border-4 border-teal-500 w-96 font-sans flex flex-col justify-between" style={{height: '550px'}}>
                  <div>
                      <div className="text-center border-b-2 border-gray-200 pb-4">
@@ -212,16 +231,16 @@ const ChildrenView: React.FC = () => {
                          <p className="text-sm text-gray-500 mt-1">بطاقة تعريف طفل</p>
                      </div>
                      <div className="flex items-center mt-6">
-                         <img src={selectedChild.profilePictureUrl || `https://picsum.photos/seed/${selectedChild.id}/100/100`} alt={selectedChild.name} className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"/>
+                         <img src={childToPrint.profilePictureUrl || `https://picsum.photos/seed/${childToPrint.id}/100/100`} alt={childToPrint.name} className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"/>
                          <div className="mr-4">
-                             <h3 className="text-2xl font-bold text-gray-800">{selectedChild.name}</h3>
-                             <p className="text-gray-600">رقم الملف: {selectedChild.fileNumber}</p>
+                             <h3 className="text-2xl font-bold text-gray-800">{childToPrint.name}</h3>
+                             <p className="text-gray-600">رقم الملف: {childToPrint.fileNumber}</p>
                          </div>
                      </div>
                      <div className="mt-6 space-y-3 text-sm">
-                         <p><strong className="w-28 inline-block font-semibold text-gray-500">الحجرة/القسم:</strong> {selectedChild.roomNumber || 'غير محدد'}</p>
-                         <p><strong className="w-28 inline-block font-semibold text-gray-500">المشرف/الطبيب:</strong> {selectedChild.therapistName}</p>
-                         <p><strong className="w-28 inline-block font-semibold text-gray-500">هاتف الولي:</strong> {selectedChild.parentPhone}</p>
+                         <p><strong className="w-28 inline-block font-semibold text-gray-500">الحجرة/القسم:</strong> {childToPrint.roomNumber || 'غير محدد'}</p>
+                         <p><strong className="w-28 inline-block font-semibold text-gray-500">المشرف/الطبيب:</strong> {childToPrint.therapistName}</p>
+                         <p><strong className="w-28 inline-block font-semibold text-gray-500">هاتف الولي:</strong> {childToPrint.parentPhone}</p>
                      </div>
                  </div>
                  

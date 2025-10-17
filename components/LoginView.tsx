@@ -18,7 +18,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
     const credentials = {
       admin: { username: 'admin', pass: 'admin', userRole: UserRole.Admin },
-      user: { username: 'user', pass: '12345', userRole: UserRole.Doctor },
+      user: { username: '12345', pass: '12345', userRole: UserRole.Doctor },
     };
 
     const targetUser = role === 'admin' ? credentials.admin : credentials.user;
@@ -64,7 +64,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={role === 'admin' ? 'admin' : 'user'}
+                placeholder={role === 'admin' ? 'admin' : '12345'}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
               />

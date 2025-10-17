@@ -41,10 +41,12 @@ const AdminStatCard: React.FC<{ icon: React.ReactNode; title: string; value: str
 
 const DashboardView: React.FC<{ user: User }> = ({ user }) => {
     const activeChildren = MOCK_CHILDREN.filter(c => c.status === ChildStatus.Active).length;
-    const upcomingAppointments = MOCK_APPOINTMENTS.filter(a => new Date(a.date) >= new Date() && a.status === 'scheduled').length;
+    // FIX: Used correct status 'مجدول' instead of 'scheduled'
+    const upcomingAppointments = MOCK_APPOINTMENTS.filter(a => new Date(a.date) >= new Date() && a.status === 'مجدول').length;
     
     const overduePayments = MOCK_CHILD_PAYMENTS.filter(p => p.paidAmount < p.totalDue && new Date(p.date) < new Date()).length;
-    const unpaidSalaries = MOCK_STAFF_SALARIES.filter(s => s.status === 'unpaid').length;
+    // FIX: Used correct status 'غير مدفوع' instead of 'unpaid'
+    const unpaidSalaries = MOCK_STAFF_SALARIES.filter(s => s.status === 'غير مدفوع').length;
     const financialAlerts = overduePayments + unpaidSalaries;
 
     const totalIncome = MOCK_CHILD_PAYMENTS.reduce((sum, p) => sum + p.paidAmount, 0);
@@ -103,7 +105,8 @@ const DashboardView: React.FC<{ user: User }> = ({ user }) => {
         <div className="bg-white p-6 rounded-xl shadow-md">
             <h3 className="text-lg font-semibold mb-4">المواعيد القادمة</h3>
             <div className="space-y-4">
-                {MOCK_APPOINTMENTS.filter(a => new Date(a.date) >= new Date() && a.status === 'scheduled').slice(0, 4).map(apt => (
+                {/* FIX: Used correct status 'مجدول' instead of 'scheduled' */}
+                {MOCK_APPOINTMENTS.filter(a => new Date(a.date) >= new Date() && a.status === 'مجدول').slice(0, 4).map(apt => (
                     <div key={apt.id} className="flex items-center justify-between p-3 bg-teal-50 rounded-lg">
                         <div>
                             <p className="font-semibold">{apt.childName}</p>
